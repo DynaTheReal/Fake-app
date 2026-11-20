@@ -84,9 +84,7 @@
   /* Intro */
   #intro{position:fixed;top:0;left:0;width:100vw;height:100vh;height:100lvh;z-index:100;background:#000;transition:opacity .7s;touch-action:none}
   #intro.fade{opacity:0;pointer-events:none}
-  #introCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
-  /* echtes Video-Element unsichtbar -> kein Apple-Player sichtbar */
-  #introVideo{position:absolute;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none}
+  #introVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
   #introVideo::-webkit-media-controls{display:none!important}
   #introVideo::-webkit-media-controls-start-playback-button{display:none!important}
   .introBtns{position:absolute;right:16px;bottom:calc(22px + env(safe-area-inset-bottom));display:flex;gap:10px}
@@ -189,8 +187,7 @@
 
 <!-- Intro-Player -->
 <div id="intro" class="hidden">
-  <canvas id="introCanvas"></canvas>
-  <video id="introVideo" playsinline webkit-playsinline preload="auto" disablepictureinpicture disableremoteplayback x-webkit-airplay="deny"></video>
+  <video id="introVideo" playsinline webkit-playsinline autoplay preload="auto" disablepictureinpicture disableremoteplayback x-webkit-airplay="deny"></video>
 </div>
 
 <div id="toast"></div>
@@ -367,28 +364,19 @@ function playIntro(blob){
   v.onended=finish; v.onerror=finish;
   v.controls=false; v.volume=1; v.playsInline=true;
 
-  // Video-Bilder auf eine Vollbild-Canvas zeichnen (füllt den Bildschirm, ohne Player-Oberfläche)
-  const cv=$('introCanvas'), ctx=cv.getContext('2d');
-  const resize=()=>{ const d=devicePixelRatio||1; cv.width=innerWidth*d; cv.height=innerHeight*d; };
-  resize(); addEventListener('resize',resize);
-  ctx.fillStyle='#000'; ctx.fillRect(0,0,cv.width,cv.height);
-  const draw=()=>{
-    if(done) return;
-    const vw=v.videoWidth, vh=v.videoHeight;
-    if(vw && v.readyState>=2){
-      const s=Math.max(cv.width/vw, cv.height/vh), w=vw*s, h=vh*s;
-      ctx.drawImage(v,(cv.width-w)/2,(cv.height-h)/2,w,h);
-    }
-    requestAnimationFrame(draw);
-  };
-  requestAnimationFrame(draw);
 
   // Mit Ton starten. Blockiert der Browser das, läuft es stumm weiter
   // und der Ton kommt unsichtbar bei der ersten Berührung dazu – keine Buttons.
   const unmute=()=>{ v.muted=false; v.volume=1; v.play().catch(()=>{}); };
   ['touchstart','pointerdown','keydown'].forEach(ev=>addEventListener(ev,unmute,{once:true,capture:true}));
   v.muted=false;
-  v.play().catch(()=>{ v.muted=true; v.play().catch(()=>{}); });
+  v.play().catch(()=>{
+    // Ton blockiert -> stumm starten (das erlaubt jeder Browser automatisch)
+    v.muted=true; v.setAttribute('muted','');
+    v.play().catch(()=>{});
+  });
+  // Sicherheitsnetz: falls es nach 0,5 s noch steht, nochmal stumm starten
+  setTimeout(()=>{ if(!done && v.paused){ v.muted=true; v.play().catch(()=>{}); } },500);
 }
 
 /* 30x tippen -> zurück zum Intro-Menü */
