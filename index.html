@@ -82,9 +82,11 @@
   @keyframes wobble{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
 
   /* Intro */
-  #intro{position:fixed;inset:0;z-index:100;background:#000;display:flex;align-items:center;justify-content:center;transition:opacity .7s}
+  #intro{position:fixed;top:0;left:0;width:100vw;height:100vh;height:100lvh;z-index:100;background:#000;transition:opacity .7s;touch-action:none}
   #intro.fade{opacity:0;pointer-events:none}
-  #introVideo{width:100%;height:100%;object-fit:contain}
+  #introVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
+  #introVideo::-webkit-media-controls{display:none!important}
+  #introVideo::-webkit-media-controls-start-playback-button{display:none!important}
   .introBtns{position:absolute;right:16px;bottom:calc(22px + env(safe-area-inset-bottom));display:flex;gap:10px}
   .pill{border:0;border-radius:999px;padding:11px 18px;font-size:15px;font-weight:700;color:#fff;background:rgba(255,255,255,.16);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);cursor:pointer}
 
@@ -185,11 +187,7 @@
 
 <!-- Intro-Player -->
 <div id="intro" class="hidden">
-  <video id="introVideo" playsinline webkit-playsinline preload="auto"></video>
-  <div class="introBtns">
-    <button class="pill hidden" id="soundBtn">🔊 Ton an</button>
-    <button class="pill" id="skipBtn">Überspringen ›</button>
-  </div>
+  <video id="introVideo" playsinline webkit-playsinline preload="auto" disablepictureinpicture disableremoteplayback></video>
 </div>
 
 <div id="toast"></div>
@@ -364,13 +362,14 @@ function playIntro(blob){
   let done=false;
   const finish=()=>{ if(done) return; done=true; ov.classList.add('fade'); v.pause(); setTimeout(()=>{ov.classList.add('hidden'); v.removeAttribute('src'); v.load();},700); };
   v.onended=finish; v.onerror=finish;
-  $('skipBtn').onclick=finish;
-  $('soundBtn').onclick=e=>{ e.stopPropagation(); v.muted=false; v.play(); $('soundBtn').classList.add('hidden'); };
+  v.controls=false; v.volume=1;
+
+  // Mit Ton starten. Blockiert der Browser das, läuft es stumm weiter
+  // und der Ton kommt unsichtbar bei der ersten Berührung dazu – keine Buttons.
+  const unmute=()=>{ v.muted=false; v.volume=1; v.play().catch(()=>{}); };
+  ['touchstart','pointerdown','keydown'].forEach(ev=>addEventListener(ev,unmute,{once:true,capture:true}));
   v.muted=false;
-  v.play().then(()=>$('soundBtn').classList.add('hidden')).catch(()=>{
-    v.muted=true; $('soundBtn').classList.remove('hidden');
-    v.play().catch(()=>{ ov.onclick=()=>{ ov.onclick=null; v.play(); }; });
-  });
+  v.play().catch(()=>{ v.muted=true; v.play().catch(()=>{}); });
 }
 
 /* 30x tippen -> zurück zum Intro-Menü */
