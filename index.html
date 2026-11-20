@@ -84,9 +84,12 @@
   /* Intro */
   #intro{position:fixed;top:0;left:0;width:100vw;height:100vh;height:100lvh;z-index:100;background:#000;transition:opacity .7s;touch-action:none}
   #intro.fade{opacity:0;pointer-events:none}
-  #introVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
-  #introVideo::-webkit-media-controls{display:none!important}
-  #introVideo::-webkit-media-controls-start-playback-button{display:none!important}
+  #introVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;opacity:0}
+  #introVideo.on{opacity:1}
+  #introVideo::-webkit-media-controls,
+  #introVideo::-webkit-media-controls-panel,
+  #introVideo::-webkit-media-controls-overlay-play-button,
+  #introVideo::-webkit-media-controls-start-playback-button{display:none!important;-webkit-appearance:none;opacity:0!important}
   .introBtns{position:absolute;right:16px;bottom:calc(22px + env(safe-area-inset-bottom));display:flex;gap:10px}
   .pill{border:0;border-radius:999px;padding:11px 18px;font-size:15px;font-weight:700;color:#fff;background:rgba(255,255,255,.16);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);cursor:pointer}
 
@@ -187,7 +190,7 @@
 
 <!-- Intro-Player -->
 <div id="intro" class="hidden">
-  <video id="introVideo" playsinline webkit-playsinline autoplay preload="auto" disablepictureinpicture disableremoteplayback x-webkit-airplay="deny"></video>
+  <video id="introVideo" playsinline webkit-playsinline autoplay muted preload="auto" disablepictureinpicture disableremoteplayback x-webkit-airplay="deny"></video>
 </div>
 
 <div id="toast"></div>
@@ -364,19 +367,24 @@ function playIntro(blob){
   v.onended=finish; v.onerror=finish;
   v.controls=false; v.volume=1; v.playsInline=true;
 
+  // Video erst sichtbar machen, wenn es wirklich läuft -> nie ein Play-Button zu sehen
+  v.classList.remove('on');
+  v.addEventListener('playing',()=>v.classList.add('on'),{once:true});
 
-  // Mit Ton starten. Blockiert der Browser das, läuft es stumm weiter
-  // und der Ton kommt unsichtbar bei der ersten Berührung dazu – keine Buttons.
-  const unmute=()=>{ v.muted=false; v.volume=1; v.play().catch(()=>{}); };
+  // Stumm starten: das erlaubt iPhone/Android ohne Tippen.
+  // Danach sofort versuchen, den Ton anzumachen; klappt das nicht, kommt er bei der ersten Berührung.
+  v.muted=true; v.defaultMuted=true; v.setAttribute('muted','');
+  const tryPlay=()=>{ if(!done && v.paused) v.play().catch(()=>{}); };
+  v.play().then(()=>{
+    v.muted=false;                       // Ton an versuchen
+    setTimeout(()=>{ if(v.paused){ v.muted=true; tryPlay(); } },80); // blockiert -> stumm weiter
+  }).catch(tryPlay);
+  v.addEventListener('loadeddata',tryPlay,{once:true});
+  v.addEventListener('canplay',tryPlay,{once:true});
+  setTimeout(tryPlay,300); setTimeout(tryPlay,1000);
+
+  const unmute=()=>{ if(done) return; v.muted=false; v.volume=1; v.play().catch(()=>{}); };
   ['touchstart','pointerdown','keydown'].forEach(ev=>addEventListener(ev,unmute,{once:true,capture:true}));
-  v.muted=false;
-  v.play().catch(()=>{
-    // Ton blockiert -> stumm starten (das erlaubt jeder Browser automatisch)
-    v.muted=true; v.setAttribute('muted','');
-    v.play().catch(()=>{});
-  });
-  // Sicherheitsnetz: falls es nach 0,5 s noch steht, nochmal stumm starten
-  setTimeout(()=>{ if(!done && v.paused){ v.muted=true; v.play().catch(()=>{}); } },500);
 }
 
 /* 30x tippen -> zurück zum Intro-Menü */
