@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0b12">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" id="appleTitle" content="Meine App">
+<title>Meine App</title>
+<link rel="icon" id="favicon" href="data:,">
+<link rel="apple-touch-icon" id="appleIcon" href="data:,">
+<link rel="manifest" id="manifestLink" href="data:application/json,%7B%7D">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  :root{--bg:#0b0b12;--card:#161622;--line:#2a2a3d;--txt:#f2f2f7;--mut:#9a9ab0;--acc:#7c5cff;--acc2:#22d3ee}
+  html,body{height:100%;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  body{min-height:100dvh;padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom)}
+  .hidden{display:none!important}
+
+  /* Intro */
+  #intro{position:fixed;inset:0;background:#000;z-index:100;display:flex;align-items:center;justify-content:center;transition:opacity .6s}
+  #intro.fade{opacity:0;pointer-events:none}
+  #introVideo{width:100%;height:100%;object-fit:contain;background:#000}
+  .introBtns{position:absolute;bottom:calc(24px + env(safe-area-inset-bottom));right:16px;display:flex;gap:10px}
+  .pill{border:0;border-radius:999px;padding:10px 18px;font-size:15px;font-weight:600;background:rgba(255,255,255,.15);color:#fff;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);cursor:pointer}
+
+  /* Home */
+  #home{min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center}
+  #homeIcon{width:128px;height:128px;border-radius:28px;object-fit:cover;box-shadow:0 20px 60px rgba(124,92,255,.35)}
+  #homeName{font-size:32px;font-weight:800;letter-spacing:-.5px}
+  .gear{position:fixed;top:calc(14px + env(safe-area-inset-top));right:14px;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--txt);font-size:20px;cursor:pointer}
+
+  /* Setup */
+  #setup{max-width:520px;margin:0 auto;padding:28px 0 40px}
+  h1{font-size:26px;font-weight:800;margin-bottom:4px}
+  .sub{color:var(--mut);margin-bottom:22px;font-size:15px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:14px}
+  label.t{display:block;font-weight:700;margin-bottom:10px;font-size:15px}
+  input[type=text]{width:100%;padding:14px;border-radius:12px;border:1px solid var(--line);background:#0f0f18;color:var(--txt);font-size:17px;outline:none}
+  input[type=text]:focus{border-color:var(--acc)}
+  .row{display:flex;align-items:center;gap:14px}
+  #logoPrev{width:72px;height:72px;border-radius:18px;object-fit:cover;background:#0f0f18;border:1px solid var(--line);flex-shrink:0}
+  .file{display:inline-block;padding:11px 16px;border-radius:12px;background:#24243a;color:var(--txt);font-weight:600;cursor:pointer;font-size:15px}
+  .file input{display:none}
+  .small{color:var(--mut);font-size:13px;margin-top:8px}
+  #videoPrev{width:100%;max-height:220px;border-radius:12px;margin-top:12px;background:#000}
+  .btn{width:100%;border:0;border-radius:14px;padding:16px;font-size:17px;font-weight:700;cursor:pointer;color:#fff;background:linear-gradient(135deg,var(--acc),var(--acc2))}
+  .btn.sec{background:#24243a}
+  .btn.danger{background:transparent;color:#ff6b81;padding:10px;font-size:14px;font-weight:600}
+  .steps{color:var(--mut);font-size:14px;line-height:1.6;margin-top:10px}
+  .steps b{color:var(--txt)}
+  #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(120px);background:#24243a;padding:12px 18px;border-radius:12px;font-weight:600;transition:transform .3s;z-index:200}
+  #toast.show{transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<!-- INTRO -->
+<div id="intro" class="hidden">
+  <video id="introVideo" playsinline webkit-playsinline preload="auto"></video>
+  <div class="introBtns">
+    <button class="pill hidden" id="soundBtn">🔊 Ton an</button>
+    <button class="pill" id="skipBtn">Überspringen ›</button>
+  </div>
+</div>
+
+<!-- HOME (die eigentliche App) -->
+<div id="home" class="hidden">
+  <button class="gear" id="openSetup" title="Einstellungen">⚙️</button>
+  <img id="homeIcon" alt="">
+  <div id="homeName"></div>
+  <button class="pill" id="replayBtn" style="background:#24243a">▶ Intro nochmal</button>
+</div>
+
+<!-- SETUP -->
+<div id="setup" class="hidden">
+  <h1>Web-App erstellen</h1>
+  <p class="sub">Name, Logo und Intro festlegen – dann installieren.</p>
+
+  <div class="card">
+    <label class="t">App-Name</label>
+    <input type="text" id="nameIn" maxlength="40" placeholder="z. B. Meine App">
+  </div>
+
+  <div class="card">
+    <label class="t">Logo / Icon</label>
+    <div class="row">
+      <img id="logoPrev" alt="">
+      <div>
+        <label class="file">Bild wählen<input type="file" id="logoIn" accept="image/*"></label>
+        <p class="small">Am besten quadratisch, z. B. 512 × 512</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <label class="t">Intro-Video</label>
+    <label class="file">Video wählen<input type="file" id="videoIn" accept="video/*"></label>
+    <p class="small" id="videoInfo">Kein Video – beliebige Länge möglich</p>
+    <video id="videoPrev" class="hidden" controls playsinline></video>
+    <button class="btn danger hidden" id="videoDel">Video entfernen</button>
+  </div>
+
+  <button class="btn" id="saveBtn">Speichern</button>
+
+  <div class="card" style="margin-top:14px">
+    <label class="t">Als App installieren</label>
+    <button class="btn sec hidden" id="installBtn">📲 App installieren</button>
+    <div class="steps" id="iosSteps">
+      <b>iPhone (Safari):</b> Teilen-Symbol ⬆️ → <b>„Zum Home-Bildschirm"</b><br>
+      <b>Android (Chrome):</b> Menü ⋮ → <b>„App installieren"</b> bzw. <b>„Zum Startbildschirm"</b><br>
+      <b>PC (Chrome/Edge):</b> Installations-Symbol in der Adressleiste
+    </div>
+    <p class="small">Erst speichern, dann installieren – sonst fehlen Name/Icon.</p>
+  </div>
+
+  <button class="btn sec hidden" id="backHome" style="margin-top:4px">Zur App</button>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const isStandalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+
+/* ---------- IndexedDB (auch für große Videos) ---------- */
+const DB = {
+  db: null,
+  open(){ return new Promise((res, rej) => {
+    const r = indexedDB.open('webapp-maker', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('cfg');
+    r.onsuccess = () => { this.db = r.result; res(); };
+    r.onerror = () => rej(r.error);
+  });},
+  get(k){ return new Promise((res, rej) => {
+    const r = this.db.transaction('cfg').objectStore('cfg').get(k);
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });},
+  set(k, v){ return new Promise((res, rej) => {
+    const t = this.db.transaction('cfg', 'readwrite');
+    t.objectStore('cfg').put(v, k);
+    t.oncomplete = res; t.onerror = () => rej(t.error);
+  });}
+};
+
+/* ---------- Icon-Helfer ---------- */
+function loadImg(src){ return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; }); }
+
+function squarePng(img, size, bg){
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const x = c.getContext('2d');
+  if (bg){ x.fillStyle = bg; x.fillRect(0, 0, size, size); }
+  const s = Math.min(img.width, img.height);
+  x.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
+  return c.toDataURL('image/png');
+}
+
+function letterIcon(name, size){
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, size, size);
+  g.addColorStop(0, '#7c5cff'); g.addColorStop(1, '#22d3ee');
+  x.fillStyle = g; x.fillRect(0, 0, size, size);
+  x.fillStyle = '#fff'; x.font = `800 ${size * .5}px system-ui,sans-serif`;
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText((name || 'A').trim().charAt(0).toUpperCase() || 'A', size / 2, size / 2 + size * .03);
+  return c.toDataURL('image/png');
+}
+
+async function buildIcons(srcDataUrl, name){
+  if (!srcDataUrl){
+    return { i512: letterIcon(name, 512), i192: letterIcon(name, 192), i180: letterIcon(name, 180), i64: letterIcon(name, 64) };
+  }
+  const img = await loadImg(srcDataUrl);
+  return {
+    i512: squarePng(img, 512),
+    i192: squarePng(img, 192),
+    i180: squarePng(img, 180, '#000'),   // iPhone mag keine Transparenz
+    i64:  squarePng(img, 64)
+  };
+}
+
+/* ---------- Name + Icon im Browser & Manifest setzen ---------- */
+function applyBranding(cfg){
+  const name = cfg.name || 'Meine App';
+  document.title = name;
+  $('appleTitle').content = name;
+  $('favicon').href = cfg.icons.i64;
+  $('appleIcon').href = cfg.icons.i180;
+
+  const base = location.href.split('#')[0].split('?')[0];
+  const scope = base.substring(0, base.lastIndexOf('/') + 1);
+  const manifest = {
+    name, short_name: name.slice(0, 12),
+    start_url: base, scope, id: base,
+    display: 'standalone',
+    background_color: '#000000', theme_color: '#0b0b12',
+    icons: [
+      { src: cfg.icons.i192, sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: cfg.icons.i512, sizes: '512x512', type: 'image/png', purpose: 'any' }
+    ]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+  const old = $('manifestLink');
+  const link = document.createElement('link');
+  link.rel = 'manifest'; link.id = 'manifestLink'; link.href = URL.createObjectURL(blob);
+  old.replaceWith(link);
+
+  $('homeIcon').src = cfg.icons.i512;
+  $('homeName').textContent = name;
+}
+
+/* ---------- Intro ---------- */
+let videoUrl = null;
+function playIntro(blob){
+  return new Promise(resolve => {
+    const ov = $('intro'), v = $('introVideo');
+    if (videoUrl) URL.revokeObjectURL(videoUrl);
+    videoUrl = URL.createObjectURL(blob);
+    v.src = videoUrl;
+    ov.classList.remove('hidden', 'fade');
+    let done = false;
+    const finish = () => {
+      if (done) return; done = true;
+      ov.classList.add('fade'); v.pause();
+      setTimeout(() => { ov.classList.add('hidden'); v.removeAttribute('src'); v.load(); }, 600);
+      resolve();
+    };
+    v.onended = finish;
+    v.onerror = finish;
+    $('skipBtn').onclick = finish;
+    $('soundBtn').onclick = () => { v.muted = false; $('soundBtn').classList.add('hidden'); v.play(); };
+
+    // erst mit Ton versuchen, sonst stumm (Browser-Autoplay-Regeln)
+    v.muted = false;
+    v.play().then(() => $('soundBtn').classList.add('hidden')).catch(() => {
+      v.muted = true;
+      $('soundBtn').classList.remove('hidden');
+      v.play().catch(() => { /* Nutzer muss tippen */ ov.onclick = () => { ov.onclick = null; v.play(); }; });
+    });
+  });
+}
+
+/* ---------- Ansichten ---------- */
+let cfg = null;
+let pendingVideo;          // undefined = unverändert, null = löschen, Blob = neu
+let pendingLogo;           // Data-URL des Original-Logos
+
+function show(view){
+  ['home', 'setup'].forEach(v => $(v).classList.toggle('hidden', v !== view));
+}
+
+function fillSetup(){
+  $('nameIn').value = cfg?.name || '';
+  pendingLogo = cfg?.logo || null;
+  pendingVideo = undefined;
+  $('logoPrev').src = cfg?.icons?.i192 || letterIcon($('nameIn').value, 192);
+  setVideoPreview(cfg?.video || null);
+  $('backHome').classList.toggle('hidden', !cfg);
+}
+
+function setVideoPreview(blob){
+  const p = $('videoPrev');
+  if (blob){
+    p.src = URL.createObjectURL(blob); p.classList.remove('hidden');
+    $('videoDel').classList.remove('hidden');
+    $('videoInfo').textContent = `${blob.name || 'Video'} · ${(blob.size / 1048576).toFixed(1)} MB`;
+  } else {
+    p.removeAttribute('src'); p.classList.add('hidden');
+    $('videoDel').classList.add('hidden');
+    $('videoInfo').textContent = 'Kein Video – beliebige Länge möglich';
+  }
+}
+
+function toast(t){ const e = $('toast'); e.textContent = t; e.classList.add('show'); setTimeout(() => e.classList.remove('show'), 2200); }
+
+/* ---------- Events ---------- */
+$('nameIn').oninput = () => { if (!pendingLogo) $('logoPrev').src = letterIcon($('nameIn').value, 192); };
+
+$('logoIn').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = async () => {
+    // Original auf max. 1024 px verkleinern
+    const img = await loadImg(r.result);
+    pendingLogo = squarePng(img, Math.min(1024, Math.min(img.width, img.height)));
+    $('logoPrev').src = pendingLogo;
+  };
+  r.readAsDataURL(f);
+};
+
+$('videoIn').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  pendingVideo = f; setVideoPreview(f);
+};
+$('videoDel').onclick = () => { pendingVideo = null; $('videoIn').value = ''; setVideoPreview(null); };
+
+$('saveBtn').onclick = async () => {
+  const name = $('nameIn').value.trim() || 'Meine App';
+  $('saveBtn').textContent = 'Speichere …';
+  try {
+    if (navigator.storage?.persist) navigator.storage.persist();
+    const icons = await buildIcons(pendingLogo, name);
+    const video = pendingVideo === undefined ? (cfg?.video || null) : pendingVideo;
+    cfg = { name, logo: pendingLogo || null, icons, video };
+    await DB.set('main', cfg);
+    applyBranding(cfg);
+    pendingVideo = undefined;
+    $('backHome').classList.remove('hidden');
+    toast('✅ Gespeichert');
+  } catch (err) {
+    toast('❌ Fehler: ' + (err.message || err));
+  }
+  $('saveBtn').textContent = 'Speichern';
+};
+
+$('openSetup').onclick = () => { fillSetup(); show('setup'); };
+$('backHome').onclick = () => show('home');
+$('replayBtn').onclick = () => cfg?.video ? playIntro(cfg.video) : toast('Kein Intro-Video gesetzt');
+
+/* Install-Button (Android/PC Chrome & Edge) */
+let deferredPrompt = null;
+addEventListener('beforeinstallprompt', e => {
+  e.preventDefault(); deferredPrompt = e;
+  $('installBtn').classList.remove('hidden');
+});
+$('installBtn').onclick = async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null; $('installBtn').classList.add('hidden');
+};
+addEventListener('appinstalled', () => toast('📲 Installiert!'));
+
+/* ---------- Start ---------- */
+(async () => {
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  await DB.open();
+  cfg = await DB.get('main') || null;
+
+  if (cfg){
+    applyBranding(cfg);
+    // Intro beim Öffnen der App (installiert) – im Browser auch, außer man will nur einstellen
+    const setupWanted = location.hash === '#setup';
+    if (setupWanted){ fillSetup(); show('setup'); return; }
+    show('home');
+    if (cfg.video) await playIntro(cfg.video);
+  } else {
+    fillSetup(); show('setup');
+  }
+})();
+</script>
+</body>
+</html>
